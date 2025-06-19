@@ -3,14 +3,32 @@ name = "cripto-project"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Денис_Язбарян",email = "denis.yazbaryan@yandex.ru (ваш_email@example.com)"}
+    { name = "Денис Язбарян", email = "denis.yazbaryan@yandex.ru" }
 ]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "scikit-learn (>=1.7.0,<2.0.0)",
+    "python-dotenv (>=1.1.0,<2.0.0)",
+    "requests (>=2.32.4,<3.0.0)",
+    "dvc (>=3.60.1,<4.0.0)",
+    "boto3 (>=1.38.38,<2.0.0)",
+    "polars[pyarrow] (>=1.31.0,<2.0.0)",
+    "mlflow (>=3.1.0,<4.0.0)",
+    "jupyterlab (>=4.4.3,<5.0.0)"
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.2.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.16.1"
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
+pre-commit = "^4.2.0"
+
