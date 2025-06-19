@@ -1,0 +1,56 @@
+services:
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"    # API S3
+      - "9001:9001"    # Консоль управления
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+  jupyter:
+    build:
+      context: ..               # корень проекта (где лежит pyproject.toml)
+      dockerfile: docker/jupyter/Dockerfile
+    image: my-crypto-jupyter:latest
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../:/home/jovyan/work
+    environment:
+      JUPYTER_TOKEN: mytoken
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    command: start-notebook.sh --NotebookApp.token='mytoken'
+    depends_on:
+      - mlflow
+      - minio
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --backend-store-uri sqlite:////mlflow/mlruns/mlflow.db
+      --default-artifact-root s3://mlflow/
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_ARTIFACT_ROOT: s3://mlflow/
+      MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+    depends_on:
+      - minio
+
+
+volumes:
+  minio_data:
