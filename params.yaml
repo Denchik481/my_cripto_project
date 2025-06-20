@@ -1,0 +1,4 @@
+bronze:
+  max_null_frac: 0.7
+  max_unique_frac: 0.98
+  row_filter: "volume > 0"

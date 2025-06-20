@@ -1,0 +1,79 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      minio:
+        image: minio/minio:latest
+        ports:
+          - 9000:9000
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 5s
+          --health-timeout 2s
+          --health-retries 10
+        command: server /data
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Lint with flake8
+        run: poetry run flake8 src/ pipelines/ tests/
+
+      - name: Check formatting with black
+        run: poetry run black --check src/ pipelines/ tests/
+
+      - name: Run tests with pytest
+        run: poetry run pytest --cov=src --cov=pipelines --cov-report=xml
+
+      - name: Build Spark Docker image
+        run: docker build -t my-spark-custom:latest docker/spark
+
+      - name: Build Jupyter Docker image
+        run: docker build -t my-crypto-jupyter:latest docker/jupyter
+
+      # (Опционально) Проверка DVC пайплайна
+      - name: Install DVC
+        run: poetry run pip install dvc
+
+      - name: DVC status
+        run: poetry run dvc status
+
+      # (Опционально) Проверка, что проект собирается без ошибок
+      - name: Poetry check
+        run: poetry check
+
+      # (Опционально) Проверка, что pyproject.toml валиден
+      - name: Validate pyproject.toml
+        run: poetry check
+
+      # (Опционально) Загрузка отчёта покрытия
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -8,6 +8,8 @@ RUN apt-get update \
  && apt-get install -y build-essential \
  && pip install --no-cache-dir poetry \
  && rm -rf /var/lib/apt/lists/*
+ 
+RUN apt-get update && apt-get install -y git nodejs
 
 WORKDIR /home/jovyan/work
 

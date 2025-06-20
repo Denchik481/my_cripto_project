@@ -1,15 +1,76 @@
 services:
+  # 1. S3‐совместимое хранилище MinIO
   minio:
-    image: minio/minio
+    image: minio/minio:latest
     ports:
-      - "9000:9000"    # API S3
-      - "9001:9001"    # Консоль управления
-    volumes:
-      - minio_data:/data
+      - "9000:9000"   # API
+      - "9001:9001"   # Web UI
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
     command: server /data --console-address ":9001"
+
+  # 2. Hive Metastore (для Iceberg Catalog)
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: hive-metastore
+    ports:
+      - "9083:9083"
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+      HIVE_METASTORE_USER: hive
+      HIVE_METASTORE_PASSWORD: hive
+      HIVE_METASTORE_DATABASE_HOST: ""
+    command: ["hive", "--service", "metastore"]
+    # метаданные хранятся в встроенной HSQLDB
+
+# 3. Spark Master
+  spark-master:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    image: my-spark-custom:latest
+    ports:
+      - "7077:7077"   # Spark Master port
+      - "8080:8080"   # Web UI
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
+    volumes:
+      - ./spark/jars:/opt/spark/extra-jars
+      - ./spark/conf:/opt/spark/conf
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master
+      --port 7077
+      --webui-port 8080
+    depends_on:
+      - minio
+      - hive-metastore
+
+  # 4. Spark Worker
+  spark-worker:
+    image: my-spark-custom:latest
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
+    volumes:
+      - ./spark/jars:/opt/spark/extra-jars
+      - ./spark/conf:/opt/spark/conf
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
 
   jupyter:
     build:
@@ -50,7 +111,6 @@ services:
       - ./mlruns:/mlflow/mlruns
     depends_on:
       - minio
-
 
 volumes:
   minio_data:

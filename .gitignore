@@ -1,0 +1,57 @@
+data/bronze/
+docker/spark/jars/
+
+data/
+!data/.gitkeep
+
+# Исключить все артефакты DVC, кроме .dvc файлов и .dvcignore
+*.dvc
+!.dvc
+!.dvcignore
+
+# Исключить временные и кэш-файлы
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Исключить виртуальные окружения
+.venv/
+venv/
+env/
+
+# Исключить логи и временные файлы
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Исключить файлы Jupyter Notebook checkpoint
+.ipynb_checkpoints/
+
+# Исключить артефакты тестов и покрытия
+htmlcov/
+.coverage
+.tox/
+.cache/
+pytest_cache/
+coverage.xml
+
+# Исключить IDE/редактор файлы
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Исключить Docker-артефакты
+docker/spark/jars/
+docker/spark/conf/
+docker/jupyter/.local/
+
+# Исключить mlruns (если не используете DVC для них)
+mlruns/
+!mlruns/.gitkeep
+
+# Исключить файлы DVC кэша (если есть)
+.dvc/cache/
