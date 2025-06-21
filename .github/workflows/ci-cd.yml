@@ -12,18 +12,18 @@ jobs:
 
     services:
       minio:
-        image: minio/minio:latest server /data --console-address ":9001"
+        image: minio/minio:latest
         ports:
           - 9000:9000
         env:
-          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_USER:     minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
         options: >-
+          --entrypoint "/usr/bin/minio server /data --console-address :9001"
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 5s
           --health-timeout 2s
           --health-retries 10
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,22 +54,15 @@ jobs:
       - name: Build Jupyter Docker image
         run: docker build -t my-crypto-jupyter:latest docker/jupyter
 
-      # (Опционально) Проверка DVC пайплайна
       - name: Install DVC
         run: poetry run pip install dvc
 
       - name: DVC status
         run: poetry run dvc status
 
-      # (Опционально) Проверка, что проект собирается без ошибок
       - name: Poetry check
         run: poetry check
 
-      # (Опционально) Проверка, что pyproject.toml валиден
-      - name: Validate pyproject.toml
-        run: poetry check
-
-      # (Опционально) Загрузка отчёта покрытия
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
