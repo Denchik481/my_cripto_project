@@ -10,8 +10,8 @@ from datetime import datetime
 with open("params.yaml") as f:
     params = yaml.safe_load(f)
 
-NULL_THRESH = params['bronze']['max_null_frac']  # Например, 0.5
-UNIQ_THRESH = params['bronze']['max_unique_frac']  # Например, 0.95
+NULL_THRESH = params["bronze"]["max_null_frac"]  # Например, 0.5
+UNIQ_THRESH = params["bronze"]["max_unique_frac"]  # Например, 0.95
 RAW = "data/raw/train.parquet"
 OUT = "data/bronze/train/"
 os.makedirs(OUT, exist_ok=True)
@@ -22,16 +22,10 @@ print(f"[{datetime.now()}] Анализ структуры файла: {RAW}")
 # 2. Анализ колонок
 # ----------------------
 con = duckdb.connect()
-columns = con.execute(
-    f"DESCRIBE SELECT * FROM read_parquet('{RAW}')"
-).fetchall()
+columns = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{RAW}')").fetchall()
 column_names = [col[0] for col in columns]
-row_count = con.execute(
-    f"SELECT COUNT(*) FROM read_parquet('{RAW}')"
-).fetchone()[0]
-print(
-    f"[{datetime.now()}] Всего строк:{row_count},колонок:{len(column_names)}"
-)
+row_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{RAW}')").fetchone()[0]
+print(f"[{datetime.now()}] Всего строк:{row_count},колонок:{len(column_names)}")
 
 stats = []
 for col in column_names:
@@ -44,12 +38,14 @@ for col in column_names:
         """
     ).fetchone()
 
-    stats.append({
-        "column": col,
-        "null_count": result[0],
-        "distinct_count": result[1],
-        "null_fraction": result[0] / row_count
-    })
+    stats.append(
+        {
+            "column": col,
+            "null_count": result[0],
+            "distinct_count": result[1],
+            "null_fraction": result[0] / row_count,
+        }
+    )
 
 stats_df = pd.DataFrame(stats)
 stats_df["distinct_fraction"] = stats_df["distinct_count"] / row_count
@@ -84,9 +80,7 @@ print(
     f"[{datetime.now()}] Чтение выбранных колонок и удаление строк с пустыми "
     f"значениями..."
 )
-df = con.execute(
-    f"SELECT {', '.join(selected_cols)} FROM read_parquet('{RAW}')"
-).df()
+df = con.execute(f"SELECT {', '.join(selected_cols)} FROM read_parquet('{RAW}')").df()
 before_drop = len(df)
 df_clean = df.dropna(how="all")
 after_drop = len(df_clean)
