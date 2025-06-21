@@ -9,7 +9,6 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     services:
       minio:
         image: minio/minio:latest
@@ -19,7 +18,7 @@ jobs:
           MINIO_ROOT_USER:     minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
         options: >-
-          --entrypoint "/usr/bin/minio server /data --console-address :9001"
+          --entrypoint "minio server /data --console-address :9001"
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 5s
           --health-timeout 2s
