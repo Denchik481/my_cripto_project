@@ -10,21 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Сервисы (MinIO)
-    services:
-      minio:
-        image: my-minio-custom:latest
-        ports:
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER:     minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 5s
-          --health-timeout 2s
-          --health-retries 10
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,6 +19,23 @@ jobs:
 
       - name: Build custom MinIO image
         run: docker build -t my-minio-custom:latest ./docker/minio
+
+      - name: Run MinIO container
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            my-minio-custom:latest server /data --console-address :9001
+          # Ждём, пока MinIO станет доступен
+          for i in {1..10}; do
+            if curl -f http://localhost:9000/minio/health/live; then
+              echo "MinIO is up!"
+              break
+            fi
+            echo "Waiting for MinIO..."
+            sleep 3
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5
