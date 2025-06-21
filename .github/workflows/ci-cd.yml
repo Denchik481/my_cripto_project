@@ -1,5 +1,6 @@
 name: CI/CD
 
+
 on:
   push:
     branches: [ main, master ]
@@ -11,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: List containers before build
+        run: docker ps -a
+      - name: List images before build
+        run: docker images
       - name: Checkout code
         uses: actions/checkout@v4
 
