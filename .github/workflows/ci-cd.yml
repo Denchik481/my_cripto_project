@@ -9,23 +9,31 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Сервисы (MinIO)
     services:
       minio:
-        image: minio/minio:latest
+        image: my-minio-custom:latest
         ports:
           - 9000:9000
         env:
           MINIO_ROOT_USER:     minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
         options: >-
-          --entrypoint "minio server /data --console-address :9001"
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 5s
           --health-timeout 2s
           --health-retries 10
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build custom MinIO image
+        run: docker build -t my-minio-custom:latest ./docker/minio
 
       - name: Set up Python
         uses: actions/setup-python@v5

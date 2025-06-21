@@ -1,16 +1,23 @@
 services:
-  # 1. S3‐совместимое хранилище MinIO
+  # 1. MinIO (собирается из docker/minio/Dockerfile)
   minio:
-    image: minio/minio:latest
+    build:
+      context: ./minio
+      dockerfile: Dockerfile
+    image: my-minio-custom:latest
     ports:
-      - "9000:9000"   # API
+      - "9000:9000"   # S3 API
       - "9001:9001"   # Web UI
     environment:
-      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_USER:     minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
 
   # 2. Hive Metastore (для Iceberg Catalog)
   hive-metastore:
@@ -24,9 +31,13 @@ services:
       HIVE_METASTORE_PASSWORD: hive
       HIVE_METASTORE_DATABASE_HOST: ""
     command: ["hive", "--service", "metastore"]
-    # метаданные хранятся в встроенной HSQLDB
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9083"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
 
-# 3. Spark Master
+  # 3. Spark Master
   spark-master:
     build:
       context: ./spark
@@ -34,13 +45,13 @@ services:
     image: my-spark-custom:latest
     ports:
       - "7077:7077"   # Spark Master port
-      - "8080:8080"   # Web UI
+      - "8080:8080"   # Spark Web UI
     environment:
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - SPARK_MASTER_HOST=spark-master
-      - SPARK_MASTER_PORT=7077
-      - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
+      AWS_ACCESS_KEY_ID:     minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      SPARK_MASTER_HOST:     spark-master
+      SPARK_MASTER_PORT:     7077
+      SPARK_EXTRA_CLASSPATH: /opt/spark/extra-jars/*
     volumes:
       - ./spark/jars:/opt/spark/extra-jars
       - ./spark/conf:/opt/spark/conf
@@ -52,6 +63,11 @@ services:
     depends_on:
       - minio
       - hive-metastore
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
 
   # 4. Spark Worker
   spark-worker:
@@ -59,11 +75,11 @@ services:
     depends_on:
       - spark-master
     environment:
-      - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=2g
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
+      SPARK_WORKER_CORES:     2
+      SPARK_WORKER_MEMORY:    2g
+      AWS_ACCESS_KEY_ID:      minioadmin
+      AWS_SECRET_ACCESS_KEY:  minioadmin
+      SPARK_EXTRA_CLASSPATH:  /opt/spark/extra-jars/*
     volumes:
       - ./spark/jars:/opt/spark/extra-jars
       - ./spark/conf:/opt/spark/conf
@@ -71,10 +87,42 @@ services:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.worker.Worker
       - spark://spark-master:7077
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://spark-master:8080"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
 
+  # 5. MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlruns/mlflow.db
+      --default-artifact-root s3://mlflow/
+      --host 0.0.0.0
+    environment:
+      AWS_ACCESS_KEY_ID:     minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_ARTIFACT_ROOT:   s3://mlflow/
+      MLFLOW_TRACKING_URI:    sqlite:///mlflow.db
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+    depends_on:
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  # 6. JupyterLab
   jupyter:
     build:
-      context: ..               # корень проекта (где лежит pyproject.toml)
+      context: ..
       dockerfile: docker/jupyter/Dockerfile
     image: my-crypto-jupyter:latest
     ports:
@@ -82,35 +130,17 @@ services:
     volumes:
       - ../:/home/jovyan/work
     environment:
-      JUPYTER_TOKEN: mytoken
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      MLFLOW_TRACKING_URI: http://mlflow:5000
+      JUPYTER_TOKEN:              mytoken
+      AWS_ACCESS_KEY_ID:          minioadmin
+      AWS_SECRET_ACCESS_KEY:      minioadmin
+      SPARK_MASTER_URL:           spark://spark-master:7077
+      MLFLOW_TRACKING_URI:        http://mlflow:5000
+      MLFLOW_S3_ENDPOINT_URL:     http://minio:9000
     command: start-notebook.sh --NotebookApp.token='mytoken'
     depends_on:
       - mlflow
       - minio
-
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
-    ports:
-      - "5000:5000"
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --backend-store-uri sqlite:////mlflow/mlruns/mlflow.db
-      --default-artifact-root s3://mlflow/
-    environment:
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      MLFLOW_ARTIFACT_ROOT: s3://mlflow/
-      MLFLOW_TRACKING_URI: sqlite:///mlflow.db
-    volumes:
-      - ./mlruns:/mlflow/mlruns
-    depends_on:
-      - minio
+      - spark-master
 
 volumes:
   minio_data:
