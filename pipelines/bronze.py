@@ -30,7 +30,7 @@ row_count = con.execute(
     f"SELECT COUNT(*) FROM read_parquet('{RAW}')"
 ).fetchone()[0]
 print(
-    f"[{datetime.now()}] Всего строк: {row_count}, колонок: {len(column_names)}"
+    f"[{datetime.now()}] Всего строк:{row_count},колонок:{len(column_names)}"
 )
 
 stats = []
