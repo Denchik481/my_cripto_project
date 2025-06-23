@@ -2,12 +2,6 @@ docker/spark/jars/
 
 .dvc/cache*
 
-data/*
-!data/**/*.dvc
-!data/.gitkeep
-!.dvc
-!.dvcignore
-
 # Исключить временные и кэш-файлы
 __pycache__/
 *.py[cod]
