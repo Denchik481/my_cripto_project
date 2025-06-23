@@ -31,6 +31,8 @@ services:
       HIVE_METASTORE_USER: hive
       HIVE_METASTORE_PASSWORD: hive
       HIVE_METASTORE_DATABASE_HOST: ""
+      SERVICE_NAME: metastore
+      HIVE_METASTORE_DB_TYPE: derby
     command: ["hive", "--service", "metastore"]
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "9083"]

@@ -1,13 +1,6 @@
-data/bronze/
 docker/spark/jars/
 
-data/
-!data/.gitkeep
-
-# Исключить все артефакты DVC, кроме .dvc файлов и .dvcignore
-*.dvc
-!.dvc
-!.dvcignore
+.dvc/cache*
 
 # Исключить временные и кэш-файлы
 __pycache__/
