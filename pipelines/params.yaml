@@ -1,0 +1,6 @@
+bronze:
+  max_null_frac:          0.7    # не более 50% пропусков
+  min_unique_values:      2      # минимум различных значений (>1)
+  max_constant_fraction:  0.90   # если >95% значений одинаковы, признак бесполезен
+  max_abs_skewness:       10     # |skewness| ≤ 10
+  max_abs_kurtosis:       70     # |kurtosis| ≤ 70
